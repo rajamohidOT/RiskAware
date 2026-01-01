@@ -5,7 +5,7 @@ const Navbar: React.FC = () => {
                 <img src="/logo.png" alt="" className="h-8 w-8"/>
                 <span className="text-white font-bold text-xl">RiskAware</span>
             </div>
-            <div className="flex space-x-6">
+            <div className="flex space-x-6 glass-card">
                 <button className="text-white hover:text-gray-300">Products</button>
                 <button className="text-white hover:text-gray-300">Solutions</button>
                 <button className="text-white hover:text-gray-300">Pricing</button>
