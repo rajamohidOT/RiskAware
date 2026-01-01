@@ -13,8 +13,19 @@ body {
 .glass {
   background: rgba(160, 160, 160, 0.22);
   border-radius: 16px;
-  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
-  backdrop-filter: blur(7.2px);
-  -webkit-backdrop-filter: blur(7.2px);
-  border: 1px solid rgba(160, 160, 160, 0.26);
+  padding: 10px 20px;
+}
+
+.linearGradient {
+  background: linear-gradient(
+    45deg,
+    #FFD12A,
+    #FFB547,
+    #FF9863,
+    #FF7B80,
+    #FF5E9D
+  );
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
