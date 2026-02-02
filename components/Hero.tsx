@@ -9,7 +9,7 @@ const Hero: React.FC = () => {
         Identify, assess, and mitigate risks effectively. Our platform provides real-time analytics and predictive insights to help you stay ahead in a dynamic risk landscape.
       </p>
       <div className="mt-[10vh]">
-        <button className="glass text-white px-6 py-3 mr-4">
+        <button className="glass text-white px-6 py-3 mr-4 rounded">
           Get Started
         </button>
         <button className="text-white border border-white px-6 py-3 rounded hover:bg-white hover:text-black transition">
