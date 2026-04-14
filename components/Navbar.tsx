@@ -52,7 +52,7 @@ const Navbar: React.FC = () => {
     <nav className="w-full h-16 flex items-center justify-between px-8 bg-transparent">
       {/* Logo */}
       <div className="flex items-center space-x-4">
-        <img src="/logo.png" alt="" className="h-8 w-8" />
+        <img src="/images/flavio.png" alt="" className="h-12 w-12" />
         <span className="text-white font-bold text-xl">RiskAware</span>
       </div>
 
