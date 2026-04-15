@@ -70,6 +70,7 @@ This project focuses on a secure backend implementation using Next.js API routes
 
 - Welcome email endpoint for newly created learners
 - Attack simulation email endpoint with custom HTML payload
+- Invite signup email for admin-created learner accounts
 - Welcome emails rendered from HTML template file
 - SMTP integration with configurable environment variables
 
@@ -97,7 +98,8 @@ This project focuses on a secure backend implementation using Next.js API routes
 
 - POST /api/learners/login
 - POST /api/learners/logout
-- POST /api/learners/signup
+- GET /api/learners/signup (invite token lookup)
+- POST /api/learners/signup (complete signup with invite token)
 - GET /api/learners
 - GET /api/learners/campaigns
 - POST /api/learners/campaigns
@@ -108,7 +110,9 @@ This project focuses on a secure backend implementation using Next.js API routes
 
 ### Admin APIs
 
-- POST /api/admin/learners
+- GET /api/admin/learners (list learners in admin organisation)
+- POST /api/admin/learners (invite learner without password)
+- PATCH /api/admin/learners (resend invite with regenerated signup token)
 - PATCH /api/admin/users
 - POST /api/admin/users
 
@@ -164,12 +168,15 @@ Create a .env file in the root of the project and add:
 
 - MONGODB_URI
 - JWT_SECRET
+- APP_BASE_URL
 - SMTP_HOST
 - SMTP_PORT
 - SMTP_SECURE
 - SMTP_USER
 - SMTP_PASS
 - SMTP_FROM
+
+`APP_BASE_URL` should point to the public app URL (for example, `https://your-domain.com`) so invite emails include correct signup links.
 
 ## Run the Project
 
