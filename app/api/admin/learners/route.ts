@@ -20,8 +20,8 @@ export const POST = withAuth(async (req: NextRequest) => {
     }
 
     const client = await clientPromise;
-    const db = client.db();
-    const existing = await db.collection('learners').findOne({ email });
+    const db = client.db('learners');
+    const existing = await db.collection('users').findOne({ email });
     if (existing) {
       return NextResponse.json({ success: false, message: 'Email already registered' }, { status: 409 });
     }
@@ -37,7 +37,7 @@ export const POST = withAuth(async (req: NextRequest) => {
       status: 'active',
       role: 'learner',
     };
-    await db.collection('learners').insertOne(learner);
+    await db.collection('users').insertOne(learner);
     return NextResponse.json({ success: true, message: 'Learner created' });
   } catch (error) {
     return handleApiError(req, error, {

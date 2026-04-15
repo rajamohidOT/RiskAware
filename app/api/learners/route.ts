@@ -11,8 +11,8 @@ export async function GET(req: NextRequest) {
     }
 
     const client = await clientPromise;
-    const db = client.db();
-    const learner = await db.collection('learners').findOne(
+    const db = client.db('learners');
+    const learner = await db.collection('users').findOne(
       { email: learnerEmail, status: { $ne: 'deleted' } },
       { projection: { password: 0 } }
     );

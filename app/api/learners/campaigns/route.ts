@@ -12,8 +12,8 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ success: false, message: 'Please sign in to continue.' }, { status: 401 });
     }
     const client = await clientPromise;
-    const db = client.db();
-    const campaigns = await db.collection('campaigns').find({
+    const campaignsDb = client.db('data');
+    const campaigns = await campaignsDb.collection('campaigns').find({
       $or: [
         { users: userEmail },
         { users: 'all' }
@@ -36,8 +36,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, message: 'Not authenticated' }, { status: 401 });
     }
     const client = await clientPromise;
-    const db = client.db();
-    const admin = await db.collection('learners').findOne({ email: adminEmail, role: 'admin' });
+    const usersDb = client.db('learners');
+    const campaignsDb = client.db('data');
+    const admin = await usersDb.collection('users').findOne({ email: adminEmail, role: 'admin' });
     if (!admin) {
       return NextResponse.json({ success: false, message: 'Not authorized' }, { status: 403 });
     }
@@ -71,7 +72,7 @@ export async function POST(req: NextRequest) {
       createdBy: adminEmail,
       organisation: admin.organisation || null,
     };
-    const result = await db.collection('campaigns').insertOne(campaign);
+    const result = await campaignsDb.collection('campaigns').insertOne(campaign);
     return NextResponse.json({ success: true, campaignId: result.insertedId });
   } catch (error) {
     return handleApiError(req, error, {
@@ -95,8 +96,8 @@ export async function PATCH(req: NextRequest) {
     }
 
     const client = await clientPromise;
-    const db = client.db();
-    const result = await db.collection('campaigns').updateOne(
+    const campaignsDb = client.db('data');
+    const result = await campaignsDb.collection('campaigns').updateOne(
       { _id: new ObjectId(sanitizedId) },
       { $set: { ...updateFields, updatedAt: new Date() } }
     );
@@ -125,8 +126,8 @@ export async function DELETE(req: NextRequest) {
     }
 
     const client = await clientPromise;
-    const db = client.db();
-    const result = await db.collection('campaigns').deleteOne({ _id: new ObjectId(id) });
+    const campaignsDb = client.db('data');
+    const result = await campaignsDb.collection('campaigns').deleteOne({ _id: new ObjectId(id) });
     if (result.deletedCount === 0) {
       return NextResponse.json({ success: false, message: 'Campaign not found' }, { status: 404 });
     }

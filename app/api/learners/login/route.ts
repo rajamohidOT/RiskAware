@@ -25,8 +25,8 @@ export async function POST(req: NextRequest) {
     }
 
     const client = await clientPromise;
-    const db = client.db();
-    const learner = await db.collection('learners').findOne({ email });
+    const db = client.db('learners');
+    const learner = await db.collection('users').findOne({ email });
     if (!learner) {
       return NextResponse.json({ success: false, message: 'Invalid credentials' }, { status: 401 });
     }

@@ -22,8 +22,8 @@ export const PATCH = withAuth(async (req: NextRequest) => {
       return NextResponse.json({ success: false, message: 'Role must be admin or learner.' }, { status: 400 });
     }
     const client = await clientPromise;
-    const db = client.db();
-    const result = await db.collection('learners').updateOne(
+    const db = client.db('learners');
+    const result = await db.collection('users').updateOne(
       { _id: new ObjectId(id) },
       { $set: { role } }
     );
@@ -56,8 +56,8 @@ export const POST = withAuth(async (req: NextRequest) => {
       return NextResponse.json({ success: false, message: 'Status must be active or deleted.' }, { status: 400 });
     }
     const client = await clientPromise;
-    const db = client.db();
-    const result = await db.collection('learners').updateOne(
+    const db = client.db('learners');
+    const result = await db.collection('users').updateOne(
       { _id: new ObjectId(id) },
       { $set: { status } }
     );

@@ -78,8 +78,8 @@ export async function GET(req: NextRequest) {
     }
 
     const client = await clientPromise;
-    const db = client.db();
-    const progress = await db.collection('campaign_progress').find(query).sort({ updatedAt: -1 }).toArray();
+    const db = client.db('data');
+    const progress = await db.collection('learner-progress').find(query).sort({ updatedAt: -1 }).toArray();
 
     return NextResponse.json({ success: true, progress });
   } catch (error) {
@@ -115,14 +115,19 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, message: 'Invalid campaignId' }, { status: 400 });
     }
 
+    if (!isValidObjectIdLike(itemId) || !isValidObjectId(itemId)) {
+      return NextResponse.json({ success: false, message: 'Invalid itemId' }, { status: 400 });
+    }
+
     if (!['attack', 'training'].includes(type)) {
       return NextResponse.json({ success: false, message: 'Invalid type. Use attack or training.' }, { status: 400 });
     }
 
     const client = await clientPromise;
-    const db = client.db();
+    const progressDb = client.db('data');
+    const dataDb = client.db('data');
 
-    const campaign = await db.collection('campaigns').findOne({ _id: new ObjectId(campaignId) });
+    const campaign = await dataDb.collection('campaigns').findOne({ _id: new ObjectId(campaignId) });
     if (!campaign) {
       return NextResponse.json({ success: false, message: 'Campaign not found' }, { status: 404 });
     }
@@ -145,7 +150,16 @@ export async function POST(req: NextRequest) {
       itemId: String(itemId),
     };
 
-    const existingProgress = await db.collection('campaign_progress').findOne(baseFilter);
+    const itemCollectionName = type === 'attack' ? 'attack-simulations' : 'training';
+    const itemExists = await dataDb.collection(itemCollectionName).findOne({ _id: new ObjectId(itemId) });
+    if (!itemExists) {
+      return NextResponse.json(
+        { success: false, message: `${type === 'attack' ? 'Attack simulation' : 'Training module'} not found` },
+        { status: 404 }
+      );
+    }
+
+    const existingProgress = await progressDb.collection('learner-progress').findOne(baseFilter);
 
     if (type === 'attack') {
       const normalizedStatus = normalizeStatus(status);
@@ -166,7 +180,7 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      await db.collection('campaign_progress').updateOne(
+      await progressDb.collection('learner-progress').updateOne(
         baseFilter,
         {
           $set: {
@@ -189,7 +203,7 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      await db.collection('campaign_progress').updateOne(
+      await progressDb.collection('learner-progress').updateOne(
         baseFilter,
         {
           $set: {
