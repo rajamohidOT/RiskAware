@@ -9,15 +9,23 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "cookies": "^0.9.1",
+    "jsonwebtoken": "^9.0.3",
+    "mongodb": "^7.1.1",
     "motion": "^12.34.2",
     "next": "16.1.1",
+    "nodemailer": "^8.0.5",
     "ogl": "^1.0.11",
     "react": "19.2.3",
     "react-dom": "19.2.3"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@types/cookies": "^0.9.2",
+    "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^20",
+    "@types/nodemailer": "^8.0.0",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
