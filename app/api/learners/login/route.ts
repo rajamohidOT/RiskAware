@@ -30,6 +30,12 @@ export async function POST(req: NextRequest) {
     if (!learner) {
       return NextResponse.json({ success: false, message: 'Invalid credentials' }, { status: 401 });
     }
+    if (learner.status === 'invited') {
+      return NextResponse.json({ success: false, message: 'Please complete your signup from the invite email first' }, { status: 403 });
+    }
+    if (!isNonEmptyString(learner.password)) {
+      return NextResponse.json({ success: false, message: 'Account password is not set. Contact your administrator.' }, { status: 403 });
+    }
     const passwordMatch = await bcrypt.compare(password, learner.password);
     if (!passwordMatch) {
       return NextResponse.json({ success: false, message: 'Invalid credentials' }, { status: 401 });
