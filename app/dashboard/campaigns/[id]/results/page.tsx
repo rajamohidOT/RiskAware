@@ -37,6 +37,10 @@ function formatDate(value?: string) {
 function getStageBadgeClasses(stage: string) {
   const normalized = stage.toLowerCase();
 
+  if (normalized.includes('redeemed')) {
+    return 'border border-teal-500/30 bg-teal-500/20 text-teal-100';
+  }
+
   if (normalized.includes('reported')) {
     return 'border border-emerald-500/30 bg-emerald-500/20 text-emerald-100';
   }
@@ -215,7 +219,7 @@ export default function AttackResultsPage() {
 
       <section className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
         <h1 className="text-2xl font-semibold">{campaignName}</h1>
-        <p className="mt-2 text-sm text-white/70">Track email unopened/opened/clicked/credentials stages with timestamps for each learner.</p>
+        <p className="mt-2 text-sm text-white/70">Track email unopened/opened/clicked/reported/redeemed/credentials stages with timestamps for each learner.</p>
 
         {!loading && !error && records.length > 0 && (
           <div className="mt-5 rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-4">

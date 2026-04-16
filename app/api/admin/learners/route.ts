@@ -242,6 +242,7 @@ export const PATCH = withAuth(async (req: NextRequest) => {
       const lastName = sanitizeString(body?.lastName);
       const country = sanitizeString(body?.country);
       const department = sanitizeString(body?.department);
+      const status = sanitizeString(body?.status).toLowerCase();
 
       if (!isNonEmptyString(organisation)) {
         return NextResponse.json({ success: false, message: 'Admin organisation is missing from session' }, { status: 403 });
@@ -251,6 +252,9 @@ export const PATCH = withAuth(async (req: NextRequest) => {
       }
       if (!isNonEmptyString(firstName) || !isNonEmptyString(lastName) || !isNonEmptyString(country) || !isNonEmptyString(department)) {
         return NextResponse.json({ success: false, message: 'All learner fields are required' }, { status: 400 });
+      }
+      if (!['active', 'inactive', 'invited'].includes(status)) {
+        return NextResponse.json({ success: false, message: 'Valid learner status is required' }, { status: 400 });
       }
 
       const client = await clientPromise;
@@ -270,6 +274,7 @@ export const PATCH = withAuth(async (req: NextRequest) => {
             lastName,
             country,
             department,
+            status,
             updatedAt: new Date(),
           },
         }

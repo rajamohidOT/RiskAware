@@ -44,6 +44,20 @@ export const ATTACK_TEMPLATE_OPTIONS: AttackTemplateOption[] = [
 
 export const TRAINING_MODULE_OPTIONS: TrainingModuleOption[] = [
   {
+    id: 'initial-assessment-cyber-profile',
+    title: 'Initial Assessment: Cyber Risk Profile',
+    description: 'Baseline assessment to measure engagement, knowledge, compatability, confidence, and commitment.',
+    videoUrl: 'https://example.com/training/initial-assessment-cyber-profile',
+    questions: [
+      'Which of the following apply to your job?',
+      'What type of sensitive data or confidential information do you handle?',
+      'Which cybersecurity policy statement best applies to you?',
+      'How well do you understand how your cybersecurity behavior affects risk?',
+      'Which statement best describes policy adherence around you?',
+      'Rate how effective current security measures are in your area.',
+    ],
+  },
+  {
     id: 'phishing-fundamentals',
     title: 'Phishing Fundamentals',
     description: 'Learn to spot common social engineering and phishing traits.',
@@ -63,6 +77,50 @@ export const TRAINING_MODULE_OPTIONS: TrainingModuleOption[] = [
       'What makes a password strong?',
       'Why should you avoid password reuse?',
       'How does MFA reduce credential risk?',
+    ],
+  },
+  {
+    id: 'hardware-safety',
+    title: 'Hardware Safety',
+    description: 'Protect company and personal devices, removable media, and physical workspace controls.',
+    videoUrl: 'https://example.com/training/hardware-safety',
+    questions: [
+      'How should you secure laptops and mobile devices in transit?',
+      'What controls apply to removable storage usage?',
+      'What should you do before leaving a workstation unattended?',
+    ],
+  },
+  {
+    id: 'company-policy-acknowledgement',
+    title: 'General Company Policy Acknowledgement',
+    description: 'Understand and acknowledge the organisation security policies and expected behaviors.',
+    videoUrl: 'https://example.com/training/company-policy-acknowledgement',
+    questions: [
+      'What are the key policy responsibilities for your role?',
+      'When should policy exceptions be escalated?',
+      'How do you challenge unsafe behaviors constructively?',
+    ],
+  },
+  {
+    id: 'passwords-data-lifecycle',
+    title: 'Passwords and Data Lifecycle Management',
+    description: 'Apply strong authentication and handle sensitive data through its full lifecycle.',
+    videoUrl: 'https://example.com/training/passwords-data-lifecycle',
+    questions: [
+      'How do password policies reduce account compromise risk?',
+      'How should data be classified, retained, and disposed of?',
+      'What are secure methods for sharing confidential data?',
+    ],
+  },
+  {
+    id: 'spot-the-scam-phish-check',
+    title: 'Spot the Scam: Phish Check',
+    description: 'Reinforce phishing detection with practical scam-identification exercises.',
+    videoUrl: 'https://example.com/training/spot-the-scam-phish-check',
+    questions: [
+      'What indicators reveal a phishing message?',
+      'How do you validate links and sender identity safely?',
+      'What immediate actions should follow a suspicious interaction?',
     ],
   },
   {

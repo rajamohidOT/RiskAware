@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>New Training Assignment – RiskAware</title>
+  <style>
+    body { font-family: Arial, Helvetica, sans-serif; background: #f4f4f7; color: #222; margin: 0; padding: 0; }
+    .wrapper { background: #f4f4f7; padding: 40px 16px; }
+    .container { background: #ffffff; border-radius: 8px; max-width: 520px; margin: 0 auto; padding: 36px 32px; box-shadow: 0 2px 8px rgba(0,0,0,0.07); }
+    .logo { font-size: 18px; font-weight: bold; color: #1a1a2e; margin-bottom: 24px; }
+    h1 { font-size: 22px; color: #1a1a2e; margin: 0 0 12px; }
+    p { font-size: 15px; line-height: 1.6; margin: 0 0 16px; color: #444; }
+    .module-box { background: #f0f4ff; border-left: 4px solid #4FA3FF; border-radius: 4px; padding: 14px 16px; margin: 20px 0; }
+    .module-box .label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: #7a90b0; margin-bottom: 4px; }
+    .module-box .title { font-size: 16px; font-weight: bold; color: #1a1a2e; }
+    .cta { display: inline-block; margin-top: 8px; padding: 12px 24px; background: #4FA3FF; color: #fff !important; border-radius: 6px; text-decoration: none; font-weight: bold; font-size: 15px; }
+    .footer { margin-top: 32px; font-size: 12px; color: #aaa; border-top: 1px solid #eee; padding-top: 16px; }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <div class="container">
+      <div class="logo">RiskAware</div>
+      <h1>You have a new training assignment</h1>
+      <p>Hi {{firstName}},</p>
+      <p>You have been assigned a new training module as part of the campaign <strong>{{campaignName}}</strong>. Please complete it by the due date.</p>
+
+      <div class="module-box">
+        <div class="label">Module</div>
+        <div class="title">{{assignmentTitle}}</div>
+      </div>
+
+      <p>Log in to your dashboard to get started:</p>
+      <a href="{{dashboardUrl}}" class="cta">Open Dashboard</a>
+
+      <div class="footer">
+        If you did not expect this email or believe it was sent in error, please contact your administrator.
+      </div>
+    </div>
+  </div>
+</body>
+</html>
