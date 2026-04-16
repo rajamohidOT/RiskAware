@@ -117,14 +117,6 @@ export default function SignInPage() {
               {submitting ? "Signing in..." : "Log In"}
             </button>
 
-            
-
-            <p className="text-center text-sm text-gray-500">
-              Don’t have an account?{" "}
-              <Link href="/signup" className="text-[#A857FF] hover:underline">
-                Register here
-              </Link>
-            </p>
           </form>
         </div>
 

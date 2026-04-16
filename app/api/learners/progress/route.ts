@@ -7,11 +7,22 @@ import { handleApiError } from '@/lib/api-error';
 const ATTACK_STATUSES = ['unopened', 'opened', 'link clicked', 'credentials entered'] as const;
 type AttackStatus = (typeof ATTACK_STATUSES)[number];
 
+type CampaignAssignment = {
+  userEmail?: string;
+  email?: string;
+  userId?: string;
+};
+
+type CampaignDoc = {
+  users?: 'all' | string[];
+  assignments?: CampaignAssignment[];
+};
+
 function isValidObjectId(id: string) {
   return ObjectId.isValid(id);
 }
 
-function isAssignedToCampaign(campaign: any, learnerEmail: string) {
+function isAssignedToCampaign(campaign: CampaignDoc | null, learnerEmail: string) {
   if (campaign?.users === 'all') {
     return true;
   }
@@ -21,7 +32,7 @@ function isAssignedToCampaign(campaign: any, learnerEmail: string) {
   }
 
   if (Array.isArray(campaign?.assignments)) {
-    return campaign.assignments.some((assignment: any) => {
+    return campaign.assignments.some((assignment) => {
       const assignmentUser = assignment?.userEmail || assignment?.email || assignment?.userId;
       return assignmentUser === learnerEmail;
     });
@@ -51,6 +62,11 @@ function isForwardAttackTransition(currentStatus: AttackStatus | undefined, next
   return order[nextStatus] >= order[currentStatus];
 }
 
+function parseDateOrNull(value: unknown) {
+  const date = new Date(String(value || ''));
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
 export async function GET(req: NextRequest) {
   try {
     const learnerEmail = req.cookies.get('session')?.value;
@@ -61,7 +77,7 @@ export async function GET(req: NextRequest) {
     const campaignId = sanitizeString(req.nextUrl.searchParams.get('campaignId'));
     const type = sanitizeString(req.nextUrl.searchParams.get('type'));
 
-    const query: any = { learnerEmail };
+    const query: Record<string, unknown> = { learnerEmail };
 
     if (campaignId) {
       if (!isValidObjectIdLike(campaignId) || !isValidObjectId(campaignId)) {
@@ -143,6 +159,16 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    if (type === 'training') {
+      const campaignEnd = parseDateOrNull(campaign.endDate);
+      if (campaignEnd && new Date() > campaignEnd) {
+        return NextResponse.json(
+          { success: false, message: 'This assignment has expired and can no longer be submitted.' },
+          { status: 403 }
+        );
+      }
+    }
+
     const baseFilter = {
       campaignId: new ObjectId(campaignId),
       learnerEmail,
@@ -200,6 +226,13 @@ export async function POST(req: NextRequest) {
         return NextResponse.json(
           { success: false, message: 'Training updates require result payload.' },
           { status: 400 }
+        );
+      }
+
+      if (existingProgress?.status === 'completed') {
+        return NextResponse.json(
+          { success: false, message: 'This assignment is already completed and cannot be submitted again.' },
+          { status: 409 }
         );
       }
 

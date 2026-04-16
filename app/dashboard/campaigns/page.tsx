@@ -85,7 +85,18 @@ function formatPercent(value: number | undefined) {
   return Math.max(0, Math.min(100, value));
 }
 
+function getResultsPath(campaign: Campaign) {
+  if (!campaign._id) {
+    return "";
+  }
+
+  return campaign.type === "attack"
+    ? `/dashboard/campaigns/${campaign._id}/results`
+    : `/dashboard/campaigns/${campaign._id}/training-results`;
+}
+
 export default function CampaignsPage() {
+  const PAGE_SIZE = 10;
   const [learner, setLearner] = useState<Learner | null>(null);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [loading, setLoading] = useState(true);
@@ -96,6 +107,10 @@ export default function CampaignsPage() {
   const [deleteCampaignId, setDeleteCampaignId] = useState<string | null>(null);
   const [deletingCampaignId, setDeletingCampaignId] = useState<string | null>(null);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const [campaignSearch, setCampaignSearch] = useState("");
+  const [sortDateField, setSortDateField] = useState<"startDate" | "endDate">("startDate");
+  const [sortDirection, setSortDirection] = useState<"desc" | "asc">("desc");
+  const [campaignPage, setCampaignPage] = useState(1);
   const profileRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -121,6 +136,11 @@ export default function CampaignsPage() {
 
         const learnerData = (await learnerRes.json()) as Learner;
         const campaignsData = (await campaignsRes.json()) as CampaignsResponse;
+
+        if (learnerData.role !== "admin") {
+          window.location.href = "/dashboard";
+          return;
+        }
 
         setLearner(learnerData);
         setCampaigns(Array.isArray(campaignsData.campaigns) ? campaignsData.campaigns : []);
@@ -148,10 +168,57 @@ export default function CampaignsPage() {
     };
   }, []);
 
-  const sortedCampaigns = useMemo(
-    () => [...campaigns].sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime()),
-    [campaigns]
-  );
+  const filteredAndSortedCampaigns = useMemo(() => {
+    const query = campaignSearch.trim().toLowerCase();
+
+    const filtered = query
+      ? campaigns.filter((campaign) => {
+          const name = (campaign.name || "").toLowerCase();
+          const description = (campaign.description || "").toLowerCase();
+          const type = (campaign.type || "").toLowerCase();
+          const status = (campaign.status || "").toLowerCase();
+          return name.includes(query) || description.includes(query) || type.includes(query) || status.includes(query);
+        })
+      : campaigns;
+
+    return [...filtered].sort((a, b) => {
+      const startA = new Date(a.startDate).getTime();
+      const startB = new Date(b.startDate).getTime();
+      const endA = new Date(a.endDate).getTime();
+      const endB = new Date(b.endDate).getTime();
+
+      const primaryA = sortDateField === "startDate" ? startA : endA;
+      const primaryB = sortDateField === "startDate" ? startB : endB;
+      if (primaryA !== primaryB) {
+        return sortDirection === "asc" ? primaryA - primaryB : primaryB - primaryA;
+      }
+
+      const secondaryA = sortDateField === "startDate" ? endA : startA;
+      const secondaryB = sortDateField === "startDate" ? endB : startB;
+      if (secondaryA !== secondaryB) {
+        return sortDirection === "asc" ? secondaryA - secondaryB : secondaryB - secondaryA;
+      }
+
+      return (a.name || "").localeCompare(b.name || "");
+    });
+  }, [campaignSearch, campaigns, sortDateField, sortDirection]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredAndSortedCampaigns.length / PAGE_SIZE));
+
+  const paginatedCampaigns = useMemo(() => {
+    const start = (campaignPage - 1) * PAGE_SIZE;
+    return filteredAndSortedCampaigns.slice(start, start + PAGE_SIZE);
+  }, [campaignPage, filteredAndSortedCampaigns]);
+
+  useEffect(() => {
+    setCampaignPage(1);
+  }, [campaignSearch, sortDateField, sortDirection]);
+
+  useEffect(() => {
+    if (campaignPage > totalPages) {
+      setCampaignPage(totalPages);
+    }
+  }, [campaignPage, totalPages]);
 
   async function cancelCampaign(campaignId: string) {
     try {
@@ -294,34 +361,61 @@ export default function CampaignsPage() {
       </header>
 
       <section className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
-        <div className="mb-6 flex items-end justify-between">
+        <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
           <div>
             <h1 className="text-2xl font-semibold">Campaigns</h1>
             <p className="mt-1 text-sm text-white/70">Manage your organisation campaigns and review activity.</p>
           </div>
 
-          {learner?.role === "admin" && (
-            <button
-              type="button"
-              onClick={() => setActionsOpen(true)}
-              className="rounded-lg bg-[#A857FF] px-4 py-2 text-sm font-medium text-white transition-all hover:bg-[#9440E6]"
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              type="text"
+              value={campaignSearch}
+              onChange={(event) => setCampaignSearch(event.target.value)}
+              placeholder="Search campaigns"
+              className="w-56 rounded-lg border border-white/15 bg-[#1a1a1a] px-3 py-2 text-sm text-white placeholder:text-white/45 focus:outline-none focus:ring-2 focus:ring-[#A857FF]"
+            />
+            <select
+              value={sortDateField}
+              onChange={(event) => setSortDateField(event.target.value as "startDate" | "endDate")}
+              className="rounded-lg border border-white/15 bg-[#1a1a1a] px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#A857FF]"
             >
-              Actions
-            </button>
-          )}
+              <option value="startDate">Start Date</option>
+              <option value="endDate">End Date</option>
+            </select>
+            <select
+              value={sortDirection}
+              onChange={(event) => setSortDirection(event.target.value as "desc" | "asc")}
+              className="rounded-lg border border-white/15 bg-[#1a1a1a] px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#A857FF]"
+            >
+              <option value="asc">Ascending</option>
+              <option value="desc">Descending</option>
+            </select>
+
+            {learner?.role === "admin" && (
+              <button
+                type="button"
+                onClick={() => setActionsOpen(true)}
+                className="rounded-lg bg-[#A857FF] px-4 py-2 text-sm font-medium text-white transition-all hover:bg-[#9440E6]"
+              >
+                Actions
+              </button>
+            )}
+          </div>
         </div>
 
         {loading && <div className="rounded-xl border border-white/10 bg-white/5 p-6 text-white/80">Loading campaigns...</div>}
         {!loading && !error && success && <div className="rounded-xl border border-emerald-400/40 bg-emerald-500/10 p-6 text-emerald-200">{success}</div>}
         {!loading && error && <div className="rounded-xl border border-red-400/40 bg-red-500/10 p-6 text-red-200">{error}</div>}
 
-        {!loading && !error && sortedCampaigns.length === 0 && (
+        {!loading && !error && filteredAndSortedCampaigns.length === 0 && (
           <div className="rounded-xl border border-white/10 bg-white/5 p-6 text-white/80">No campaigns right now.</div>
         )}
 
-        {!loading && !error && sortedCampaigns.length > 0 && (
+        {!loading && !error && filteredAndSortedCampaigns.length > 0 && (
+          <>
           <div className="grid gap-4 md:grid-cols-2">
-            {sortedCampaigns.map((campaign) => {
+            {paginatedCampaigns.map((campaign) => {
               const status = campaign.status || "in-progress";
               const completion = formatPercent(campaign.completionPercentage);
 
@@ -330,9 +424,9 @@ export default function CampaignsPage() {
                   key={campaign._id || `${campaign.name}-${campaign.startDate}`}
                   className="relative rounded-xl border border-white/10 bg-white/5 p-5"
                 >
-                  {learner?.role === "admin" && campaign.type === "attack" && campaign._id && (
+                  {learner?.role === "admin" && campaign._id && (
                     <Link
-                      href={`/dashboard/campaigns/${campaign._id}/results`}
+                      href={getResultsPath(campaign)}
                       className="absolute inset-0 z-0 rounded-xl"
                       aria-label={`Open results for ${campaign.name}`}
                     />
@@ -340,8 +434,8 @@ export default function CampaignsPage() {
 
                   <div className="mb-3 flex items-start justify-between gap-2">
                     <div className="relative z-10">
-                      {learner?.role === "admin" && campaign.type === "attack" && campaign._id ? (
-                        <Link href={`/dashboard/campaigns/${campaign._id}/results`} className="text-lg font-semibold text-white hover:text-[#FFB3B7]">
+                      {learner?.role === "admin" && campaign._id ? (
+                        <Link href={getResultsPath(campaign)} className="text-lg font-semibold text-white hover:text-[#FFB3B7]">
                           {campaign.name}
                         </Link>
                       ) : (
@@ -415,9 +509,9 @@ export default function CampaignsPage() {
                     )}
                   </div>
 
-                  {learner?.role === "admin" && campaign.type === "attack" && campaign._id ? (
+                  {learner?.role === "admin" && campaign._id ? (
                     <Link
-                      href={`/dashboard/campaigns/${campaign._id}/results`}
+                      href={getResultsPath(campaign)}
                       className="relative z-10 mb-4 block line-clamp-3 text-sm text-white/75 hover:text-white"
                     >
                       {campaign.description || "No description provided."}
@@ -465,6 +559,31 @@ export default function CampaignsPage() {
               );
             })}
           </div>
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-4">
+            <p className="text-xs text-white/65">
+              Showing {(campaignPage - 1) * PAGE_SIZE + 1}-{Math.min(campaignPage * PAGE_SIZE, filteredAndSortedCampaigns.length)} of {filteredAndSortedCampaigns.length}
+            </p>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setCampaignPage((prev) => Math.max(1, prev - 1))}
+                disabled={campaignPage === 1}
+                className="rounded-md border border-white/15 px-3 py-1 text-xs hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Previous
+              </button>
+              <span className="text-xs text-white/70">Page {campaignPage} of {totalPages}</span>
+              <button
+                type="button"
+                onClick={() => setCampaignPage((prev) => Math.min(totalPages, prev + 1))}
+                disabled={campaignPage === totalPages}
+                className="rounded-md border border-white/15 px-3 py-1 text-xs hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Next
+              </button>
+            </div>
+          </div>
+          </>
         )}
       </section>
 

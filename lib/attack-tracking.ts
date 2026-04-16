@@ -5,6 +5,7 @@ export const ATTACK_STAGE = {
   opened: 'email opened',
   clicked: 'email clicked',
   reported: 'email reported',
+  redeemed: 'email redeemed',
   credentials: 'email credentials',
 } as const;
 
@@ -26,6 +27,9 @@ export function deriveAttackStage(record: {
 }) {
   if (record.credentialsSubmittedAt) {
     return ATTACK_STAGE.credentials;
+  }
+  if (record.reportedAt && record.clickedAt) {
+    return ATTACK_STAGE.redeemed;
   }
   if (record.reportedAt) {
     return ATTACK_STAGE.reported;

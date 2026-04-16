@@ -30,6 +30,12 @@ export async function POST(req: NextRequest) {
     if (!learner) {
       return NextResponse.json({ success: false, message: 'Invalid credentials' }, { status: 401 });
     }
+    if (learner.status === 'inactive') {
+      return NextResponse.json({ success: false, message: 'Your account is inactive. Please contact your administrator.' }, { status: 403 });
+    }
+    if (learner.status === 'deleted') {
+      return NextResponse.json({ success: false, message: 'Invalid credentials' }, { status: 401 });
+    }
     if (learner.status === 'invited') {
       return NextResponse.json({ success: false, message: 'Please complete your signup from the invite email first' }, { status: 403 });
     }

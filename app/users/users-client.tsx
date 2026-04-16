@@ -37,6 +37,8 @@ type InviteForm = {
   department: string;
 };
 
+type EditableLearnerStatus = "active" | "inactive" | "invited";
+
 const initialForm: InviteForm = {
   email: "",
   firstName: "",
@@ -69,6 +71,7 @@ const COUNTRY_OPTIONS = [
 ];
 
 export default function UsersClient({ organisation }: { organisation: string }) {
+  const PAGE_SIZE = 20;
   const [learners, setLearners] = useState<Learner[]>([]);
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
   const [form, setForm] = useState<InviteForm>(initialForm);
@@ -78,6 +81,7 @@ export default function UsersClient({ organisation }: { organisation: string }) 
     country: "",
     department: "",
   });
+  const [editStatus, setEditStatus] = useState<EditableLearnerStatus>("active");
   const [editingLearner, setEditingLearner] = useState<Learner | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -90,6 +94,8 @@ export default function UsersClient({ organisation }: { organisation: string }) 
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [settingsOpenFor, setSettingsOpenFor] = useState("");
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const profileRef = useRef<HTMLDivElement>(null);
@@ -135,6 +141,38 @@ export default function UsersClient({ organisation }: { organisation: string }) 
     }
     return (currentUser?.email || "A").charAt(0).toUpperCase();
   }, [currentUser]);
+
+  const filteredLearners = useMemo(() => {
+    const query = searchTerm.trim().toLowerCase();
+    if (!query) {
+      return learners;
+    }
+
+    return learners.filter((learner) => {
+      const fullName = `${learner.firstName || ""} ${learner.lastName || ""}`.toLowerCase();
+      const email = (learner.email || "").toLowerCase();
+      const department = (learner.department || "").toLowerCase();
+      const status = (learner.status || "").toLowerCase();
+      return fullName.includes(query) || email.includes(query) || department.includes(query) || status.includes(query);
+    });
+  }, [learners, searchTerm]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredLearners.length / PAGE_SIZE));
+
+  const paginatedLearners = useMemo(() => {
+    const start = (currentPage - 1) * PAGE_SIZE;
+    return filteredLearners.slice(start, start + PAGE_SIZE);
+  }, [filteredLearners, currentPage]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
 
   async function loadCurrentUser() {
     try {
@@ -201,10 +239,19 @@ export default function UsersClient({ organisation }: { organisation: string }) 
       country: learner.country || "",
       department: learner.department || "",
     });
+    const nextStatus = sanitizeLearnerStatus(learner.status);
+    setEditStatus(nextStatus);
     setEditModalOpen(true);
     setSettingsOpenFor("");
     setError("");
     setSuccess("");
+  }
+
+  function sanitizeLearnerStatus(status: string | undefined): EditableLearnerStatus {
+    if (status === "inactive" || status === "invited") {
+      return status;
+    }
+    return "active";
   }
 
   async function onInviteLearner(event: FormEvent<HTMLFormElement>) {
@@ -293,6 +340,7 @@ export default function UsersClient({ organisation }: { organisation: string }) 
         body: JSON.stringify({
           action: "edit",
           learnerId: editingLearner._id,
+          status: editStatus,
           ...editForm,
         }),
       });
@@ -440,97 +488,135 @@ export default function UsersClient({ organisation }: { organisation: string }) 
         )}
 
         <div className="rounded-xl border border-white/10 bg-white/5 p-5 overflow-x-auto">
-          <div className="mb-4 flex items-center justify-between">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <h2 className="text-lg font-semibold">Learners</h2>
-            <button
-              type="button"
-              onClick={openInviteModal}
-              className="rounded-lg bg-[#A857FF] px-4 py-2 text-sm font-medium transition-all hover:bg-[#9440E6]"
-            >
-              + Add Learner
-            </button>
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(event) => setSearchTerm(event.target.value)}
+                placeholder="Search learners"
+                className="w-56 rounded-lg border border-white/15 bg-[#1a1a1a] px-3 py-2 text-sm text-white placeholder:text-white/45 focus:outline-none focus:ring-2 focus:ring-[#A857FF]"
+              />
+              <button
+                type="button"
+                onClick={openInviteModal}
+                className="rounded-lg bg-[#A857FF] px-4 py-2 text-sm font-medium transition-all hover:bg-[#9440E6]"
+              >
+                + Add Learner
+              </button>
+            </div>
           </div>
 
           {loading ? (
             <p className="text-white/80">Loading learners...</p>
-          ) : learners.length === 0 ? (
+          ) : filteredLearners.length === 0 ? (
             <p className="text-white/70">No learners found for this organisation.</p>
           ) : (
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-left text-white/70 border-b border-white/10">
-                  <th className="pb-3 pr-4">Name</th>
-                  <th className="pb-3 pr-4">Email</th>
-                  <th className="pb-3 pr-4">Department</th>
-                  <th className="pb-3 pr-4">Status</th>
-                  <th className="pb-3 pr-4">Action</th>
-                  <th className="pb-3 pr-0 text-right">Settings</th>
-                </tr>
-              </thead>
-              <tbody>
-                {learners.map((learner) => {
-                  const name = `${learner.firstName || ""} ${learner.lastName || ""}`.trim() || "-";
-                  const isInvited = learner.status === "invited";
-                  const learnerId = learner._id || learner.email;
-                  return (
-                    <tr key={learnerId} className="border-b border-white/5">
-                      <td className="py-3 pr-4">{name}</td>
-                      <td className="py-3 pr-4">{learner.email}</td>
-                      <td className="py-3 pr-4">{learner.department || "-"}</td>
-                      <td className="py-3 pr-4">
-                        <span className={`rounded-full px-2 py-1 text-xs ${isInvited ? "bg-amber-500/20 text-amber-200" : "bg-emerald-500/20 text-emerald-200"}`}>
-                          {learner.status || "unknown"}
-                        </span>
-                      </td>
-                      <td className="py-3 pr-4">
-                        {isInvited ? (
-                          <button
-                            onClick={() => void onResendInvite(learner.email)}
-                            disabled={resendingEmail === learner.email || deletingLearnerId === learner._id}
-                            className="rounded-md border border-white/15 px-3 py-1 text-xs hover:bg-white/10 disabled:opacity-60 disabled:cursor-not-allowed"
-                          >
-                            {resendingEmail === learner.email ? "Resending..." : "Resend Invite"}
-                          </button>
-                        ) : (
-                          <span className="text-white/50">-</span>
-                        )}
-                      </td>
-                      <td className="py-3 pr-0 text-right">
-                        <div className="relative inline-block" data-learner-settings>
-                          <button
-                            type="button"
-                            onClick={() => setSettingsOpenFor((prev) => (prev === learnerId ? "" : learnerId))}
-                            className="rounded-md border border-white/15 px-3 py-1 text-xs hover:bg-white/10"
-                          >
-                            Settings
-                          </button>
+            <>
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-white/70 border-b border-white/10">
+                    <th className="pb-3 pr-4">Name</th>
+                    <th className="pb-3 pr-4">Email</th>
+                    <th className="pb-3 pr-4">Department</th>
+                    <th className="pb-3 pr-4">Status</th>
+                    <th className="pb-3 pr-0 text-right">Settings</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {paginatedLearners.map((learner) => {
+                    const name = `${learner.firstName || ""} ${learner.lastName || ""}`.trim() || "-";
+                    const isInvited = learner.status === "invited";
+                    const learnerId = learner._id || learner.email;
+                    return (
+                      <tr key={learnerId} className="border-b border-white/5">
+                        <td className="py-3 pr-4">{name}</td>
+                        <td className="py-3 pr-4">{learner.email}</td>
+                        <td className="py-3 pr-4">{learner.department || "-"}</td>
+                        <td className="py-3 pr-4">
+                          <span className={`rounded-full px-2 py-1 text-xs ${
+                            learner.status === "inactive"
+                              ? "bg-slate-500/20 text-slate-200"
+                              : isInvited
+                                ? "bg-amber-500/20 text-amber-200"
+                                : "bg-emerald-500/20 text-emerald-200"
+                          }`}>
+                            {learner.status || "unknown"}
+                          </span>
+                        </td>
+                        <td className="py-3 pr-0 text-right">
+                          <div className="relative inline-block" data-learner-settings>
+                            <button
+                              type="button"
+                              onClick={() => setSettingsOpenFor((prev) => (prev === learnerId ? "" : learnerId))}
+                              className="rounded-md border border-white/15 px-3 py-1 text-xs hover:bg-white/10"
+                            >
+                              Settings
+                            </button>
 
-                          {settingsOpenFor === learnerId && (
-                            <div className="absolute right-0 z-20 mt-2 w-40 rounded-lg border border-white/15 bg-[#151515] p-1 shadow-xl">
-                              <button
-                                type="button"
-                                onClick={() => openEditModal(learner)}
-                                className="w-full rounded-md px-3 py-2 text-left text-xs text-white/90 hover:bg-white/10"
-                              >
-                                Edit learner
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => openDeleteLearnerModal(learner)}
-                                disabled={deletingLearnerId === learner._id}
-                                className="w-full rounded-md px-3 py-2 text-left text-xs text-red-200 hover:bg-red-500/20 disabled:opacity-60"
-                              >
-                                {deletingLearnerId === learner._id ? "Deleting..." : "Delete learner"}
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                            {settingsOpenFor === learnerId && (
+                              <div className="absolute right-0 z-20 mt-2 w-40 rounded-lg border border-white/15 bg-[#151515] p-1 shadow-xl">
+                                {isInvited && (
+                                  <button
+                                    type="button"
+                                    onClick={() => void onResendInvite(learner.email)}
+                                    disabled={resendingEmail === learner.email || deletingLearnerId === learner._id}
+                                    className="w-full rounded-md px-3 py-2 text-left text-xs text-white/90 hover:bg-white/10 disabled:opacity-60 disabled:cursor-not-allowed"
+                                  >
+                                    {resendingEmail === learner.email ? "Resending..." : "Resend invite"}
+                                  </button>
+                                )}
+                                <button
+                                  type="button"
+                                  onClick={() => openEditModal(learner)}
+                                  className="w-full rounded-md px-3 py-2 text-left text-xs text-white/90 hover:bg-white/10"
+                                >
+                                  Edit learner
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => openDeleteLearnerModal(learner)}
+                                  disabled={deletingLearnerId === learner._id}
+                                  className="w-full rounded-md px-3 py-2 text-left text-xs text-red-200 hover:bg-red-500/20 disabled:opacity-60"
+                                >
+                                  {deletingLearnerId === learner._id ? "Deleting..." : "Delete learner"}
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+
+              <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-4">
+                <p className="text-xs text-white/65">
+                  Showing {(currentPage - 1) * PAGE_SIZE + 1}-{Math.min(currentPage * PAGE_SIZE, filteredLearners.length)} of {filteredLearners.length}
+                </p>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                    disabled={currentPage === 1}
+                    className="rounded-md border border-white/15 px-3 py-1 text-xs hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    Previous
+                  </button>
+                  <span className="text-xs text-white/70">Page {currentPage} of {totalPages}</span>
+                  <button
+                    type="button"
+                    onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                    disabled={currentPage === totalPages}
+                    className="rounded-md border border-white/15 px-3 py-1 text-xs hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            </>
           )}
         </div>
       </section>
@@ -664,6 +750,16 @@ export default function UsersClient({ organisation }: { organisation: string }) 
                 className="rounded-lg bg-[#1a1a1a] border border-white/10 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#A857FF]"
                 required
               />
+              <select
+                value={editStatus}
+                onChange={(event) => setEditStatus(event.target.value as EditableLearnerStatus)}
+                className="rounded-lg bg-[#1a1a1a] border border-white/10 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#A857FF] md:col-span-2"
+                required
+              >
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+                <option value="invited">Invited</option>
+              </select>
               <button
                 type="submit"
                 disabled={savingEdit}

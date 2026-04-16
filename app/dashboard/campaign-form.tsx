@@ -69,6 +69,7 @@ export default function CampaignForm({
   campaignId,
   initialValues,
 }: CampaignFormProps) {
+  const PAGE_SIZE = 20;
   const router = useRouter();
   const [learners, setLearners] = useState<Learner[]>([]);
   const [loadingLearners, setLoadingLearners] = useState(true);
@@ -80,6 +81,8 @@ export default function CampaignForm({
   const [selectAll, setSelectAll] = useState(true);
   const [selectedLearners, setSelectedLearners] = useState<string[]>([]);
   const [selectedAssignmentIds, setSelectedAssignmentIds] = useState<string[]>([]);
+  const [learnerSearchTerm, setLearnerSearchTerm] = useState("");
+  const [learnerPage, setLearnerPage] = useState(1);
   const profileRef = useRef<HTMLDivElement>(null);
   const [form, setForm] = useState({
     name: initialValues?.name || "",
@@ -205,6 +208,36 @@ export default function CampaignForm({
     }
     return (currentUser?.email || "U").charAt(0).toUpperCase();
   }, [currentUser]);
+
+  const filteredLearners = useMemo(() => {
+    const query = learnerSearchTerm.trim().toLowerCase();
+    if (!query) {
+      return learners;
+    }
+
+    return learners.filter((learner) => {
+      const fullName = `${learner.firstName || ""} ${learner.lastName || ""}`.toLowerCase();
+      const email = (learner.email || "").toLowerCase();
+      return fullName.includes(query) || email.includes(query);
+    });
+  }, [learners, learnerSearchTerm]);
+
+  const learnerTotalPages = Math.max(1, Math.ceil(filteredLearners.length / PAGE_SIZE));
+
+  const paginatedLearners = useMemo(() => {
+    const start = (learnerPage - 1) * PAGE_SIZE;
+    return filteredLearners.slice(start, start + PAGE_SIZE);
+  }, [filteredLearners, learnerPage]);
+
+  useEffect(() => {
+    setLearnerPage(1);
+  }, [learnerSearchTerm, selectAll]);
+
+  useEffect(() => {
+    if (learnerPage > learnerTotalPages) {
+      setLearnerPage(learnerTotalPages);
+    }
+  }, [learnerPage, learnerTotalPages]);
 
   function updateField(field: keyof typeof form, value: string) {
     setForm((current) => ({ ...current, [field]: value }));
@@ -442,13 +475,22 @@ export default function CampaignForm({
             </div>
 
             {!selectAll && (
-              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <div className="mt-4 space-y-3">
+                <input
+                  type="text"
+                  value={learnerSearchTerm}
+                  onChange={(event) => setLearnerSearchTerm(event.target.value)}
+                  placeholder="Search learners"
+                  className="w-full rounded-lg border border-white/15 bg-[#1a1a1a] px-3 py-2 text-sm text-white placeholder:text-white/45 focus:outline-none focus:ring-2 focus:ring-[#A857FF]"
+                />
+
+                <div className="grid gap-3 sm:grid-cols-2">
                 {loadingLearners ? (
                   <p className="text-sm text-white/70">Loading learners...</p>
-                ) : learners.length === 0 ? (
+                ) : filteredLearners.length === 0 ? (
                   <p className="text-sm text-white/70">No active learners available yet.</p>
                 ) : (
-                  learners.map((learner) => {
+                  paginatedLearners.map((learner) => {
                     const name = `${learner.firstName || ""} ${learner.lastName || ""}`.trim() || learner.email;
                     const checked = selectedLearners.includes(learner.email);
                     return (
@@ -466,6 +508,34 @@ export default function CampaignForm({
                       </label>
                     );
                   })
+                )}
+                </div>
+
+                {!loadingLearners && filteredLearners.length > 0 && (
+                  <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-3">
+                    <p className="text-xs text-white/65">
+                      Showing {(learnerPage - 1) * PAGE_SIZE + 1}-{Math.min(learnerPage * PAGE_SIZE, filteredLearners.length)} of {filteredLearners.length}
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setLearnerPage((prev) => Math.max(1, prev - 1))}
+                        disabled={learnerPage === 1}
+                        className="rounded-md border border-white/15 px-3 py-1 text-xs hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        Previous
+                      </button>
+                      <span className="text-xs text-white/70">Page {learnerPage} of {learnerTotalPages}</span>
+                      <button
+                        type="button"
+                        onClick={() => setLearnerPage((prev) => Math.min(learnerTotalPages, prev + 1))}
+                        disabled={learnerPage === learnerTotalPages}
+                        className="rounded-md border border-white/15 px-3 py-1 text-xs hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        Next
+                      </button>
+                    </div>
+                  </div>
                 )}
               </div>
             )}

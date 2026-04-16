@@ -1,10 +1,61 @@
 import { NextRequest, NextResponse } from 'next/server';
 import clientPromise from '@/lib/mongodb';
+import nodemailer from 'nodemailer';
+import { promises as fs } from 'fs';
+import path from 'path';
 import { Db, ObjectId } from 'mongodb';
 import { isNonEmptyString, isValidObjectIdLike, sanitizeObject, sanitizeString } from '@/lib/security';
 import { handleApiError } from '@/lib/api-error';
 import { ATTACK_TEMPLATE_OPTIONS, TRAINING_MODULE_OPTIONS, getAttackTemplateById, getTrainingModuleById, type AttackTemplateOption } from '@/lib/campaign-options';
 import { sendAttackSimulationEmails } from '@/lib/attack-email';
+
+type TrainingAssignmentEmailRecipient = {
+  email: string;
+  firstName: string;
+};
+
+async function sendTrainingAssignmentEmails(params: {
+  recipients: TrainingAssignmentEmailRecipient[];
+  campaignName: string;
+  assignments: Array<{ title: string }>;
+  dashboardUrl: string;
+}) {
+  if (params.recipients.length === 0 || params.assignments.length === 0) {
+    return;
+  }
+
+  const templatePath = path.join(process.cwd(), 'public', 'email-templates', 'training-assignment.html');
+  const templateHtml = await fs.readFile(templatePath, 'utf-8');
+
+  const transporter = nodemailer.createTransport({
+    host: process.env.SMTP_HOST,
+    port: Number(process.env.SMTP_PORT),
+    secure: process.env.SMTP_SECURE === 'true',
+    auth: {
+      user: process.env.SMTP_USER,
+      pass: process.env.SMTP_PASS,
+    },
+  });
+
+  await Promise.all(
+    params.recipients.flatMap((recipient) =>
+      params.assignments.map((assignment) => {
+        const html = templateHtml
+          .replace(/{{firstName}}/g, recipient.firstName)
+          .replace(/{{campaignName}}/g, params.campaignName)
+          .replace(/{{assignmentTitle}}/g, assignment.title)
+          .replace(/{{dashboardUrl}}/g, params.dashboardUrl);
+
+        return transporter.sendMail({
+          from: process.env.SMTP_FROM,
+          to: recipient.email,
+          subject: `New Training Assignment: ${assignment.title}`,
+          html,
+        });
+      })
+    )
+  );
+}
 
 type CampaignDoc = {
   _id: ObjectId;
@@ -19,6 +70,24 @@ type CampaignDoc = {
   assignments?: Array<{ id: string; title: string; [key: string]: unknown }>;
   createdBy?: string;
   organisation?: string | null;
+};
+
+type LearnerProgressDoc = {
+  itemId?: string;
+  status?: string;
+  completedAt?: Date;
+  updatedAt?: Date;
+  result?: {
+    overallScore?: number;
+    metrics?: {
+      engagement?: number;
+      knowledge?: number;
+      compatibility?: number;
+      compatability?: number;
+      confidence?: number;
+      commitment?: number;
+    };
+  };
 };
 
 function isValidTimezone(timezone: string) {
@@ -261,12 +330,55 @@ export async function GET(req: NextRequest) {
             : 0;
 
         let completedItems = 0;
+        let learnerAssignments: Array<Record<string, unknown>> = [];
         if (campaign.type === 'training') {
-          completedItems = await progressCollection.countDocuments({
-            campaignId: campaign._id,
-            type: 'training',
-            status: 'completed',
-          });
+          if (isAdmin) {
+            completedItems = await progressCollection.countDocuments({
+              campaignId: campaign._id,
+              type: 'training',
+              status: 'completed',
+            });
+          } else {
+            const progressDocs = await progressCollection.find({
+              campaignId: campaign._id,
+              type: 'training',
+              learnerEmail: userEmail,
+            }).toArray() as LearnerProgressDoc[];
+
+            const progressByItemId = new Map(
+              progressDocs
+                .map((doc) => [sanitizeString(doc.itemId), doc])
+                .filter(([itemId]) => Boolean(itemId))
+            );
+
+            learnerAssignments = (Array.isArray(campaign.assignments) ? campaign.assignments : []).map((assignment) => {
+              const assignmentId = sanitizeString(assignment?.id);
+              const progress = progressByItemId.get(assignmentId);
+              const baseStatus = sanitizeString(progress?.status) || 'not-started';
+              const campaignEnd = parseDate(sanitizeString(campaign.endDate));
+              const isExpired = baseStatus !== 'completed' && Boolean(campaignEnd && campaignEnd < new Date());
+              const status = isExpired ? 'expired' : baseStatus;
+              const isInitialAssessment = assignmentId === 'initial-assessment-cyber-profile';
+              const launchUrl = status === 'completed' || status === 'expired'
+                ? ''
+                : isInitialAssessment
+                  ? `/dashboard/training/initial-assessment?campaignId=${encodeURIComponent(String(campaign._id))}&itemId=${encodeURIComponent(assignmentId)}&dueAt=${encodeURIComponent(sanitizeString(campaign.endDate))}`
+                  : `/dashboard/training/${encodeURIComponent(assignmentId)}?campaignId=${encodeURIComponent(String(campaign._id))}&itemId=${encodeURIComponent(assignmentId)}&dueAt=${encodeURIComponent(sanitizeString(campaign.endDate))}`;
+
+              return {
+                id: assignmentId,
+                title: sanitizeString(assignment?.title),
+                description: sanitizeString(assignment?.description),
+                status,
+                completedAt: progress?.completedAt || null,
+                updatedAt: progress?.updatedAt || null,
+                overallScore: typeof progress?.result?.overallScore === 'number' ? progress.result.overallScore : null,
+                launchUrl,
+              };
+            });
+
+            completedItems = learnerAssignments.filter((assignment) => assignment.status === 'completed').length;
+          }
         } else {
           completedItems = await attackTrackingCollection.countDocuments({
             campaignId: campaign._id,
@@ -291,6 +403,7 @@ export async function GET(req: NextRequest) {
           completionPercentage,
           status,
           canSendReminders: campaign.type === 'training' && isAdmin,
+          assignments: !isAdmin && campaign.type === 'training' ? learnerAssignments : campaign.assignments,
         };
       })
     );
@@ -408,6 +521,25 @@ export async function POST(req: NextRequest) {
           updatedAt: new Date(),
         });
       }
+    }
+
+    if (sanitizedType === 'training') {
+      const rawRecipients = await getAttackRecipients(usersDb, admin.organisation || null, sanitizedUsers);
+      const trainingRecipients = rawRecipients
+        .map((recipient) => ({
+          email: sanitizeString(recipient.email).toLowerCase(),
+          firstName: sanitizeString(recipient.firstName) || 'Learner',
+        }))
+        .filter((recipient) => isNonEmptyString(recipient.email));
+
+      const baseUrl = sanitizeString(process.env.APP_BASE_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000').replace(/\/$/, '');
+
+      await sendTrainingAssignmentEmails({
+        recipients: trainingRecipients,
+        campaignName: campaign.name,
+        assignments: assignments.map((a) => ({ title: sanitizeString((a as { title?: string }).title) || 'Training Module' })),
+        dashboardUrl: `${baseUrl}/dashboard`,
+      });
     }
 
     return NextResponse.json({ success: true, campaignId: result.insertedId });
